@@ -1,0 +1,738 @@
+
+First Set Database Name ok 
+
+
+mysql
+
+
+also set in database.php
+
+mysql
+ 
+
+
+
+
+
+ php artisan migrate
+
+
+
+
+
+ 
+php artisan make:controller UsersController  
+
+
+
+
+php artisan install:api 
+
+
+
+
+
+
+  
+use App\Http\Controllers\UsersController;
+
+ 
+
+ 
+Route::post('/register', [UsersController::class, 'register']);
+Route::post('/login', [UsersController::class, 'login']);
+Route::get('/dashboard', [UsersController::class, 'dashboard']);
+Route::post('/logout', [UsersController::class, 'logout']);
+
+
+
+
+
+
+
+
+composer require tymon/jwt-auth
+
+
+
+
+php artisan jwt:secret
+JWT_SECRET=ZBG200FeoDHAv9V3QXsfxVIH9oiUntqWTu5MnVPDNHjipJJzxr2bQo4jrxkCLhal 
+
+
+
+
+
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Tymon\JWTAuth\Contracts\JWTSubject;
+
+class User extends Authenticatable   implements JWTSubject
+{
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey(); // The unique identifier for the user (typically the id)
+    }
+    public function getJWTCustomClaims()
+    {
+        return []; // You can add custom claims if needed, like user roles, etc.
+    }
+}
+
+
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Log;
+
+ use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
+
+use Tymon\JWTAuth\Facades\JWTAuth;
+ 
+class UsersController extends Controller
+{
+     public function register(Request $request)
+    {
+         $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|max:12',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+         $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+         $token = JWTAuth::fromUser($user);
+
+         return response()->json([
+            'message' => 'User registered successfully',
+            'user' => $user,
+            'token' => $token
+        ], 201);
+    }
+    public function login(Request $request)
+    {
+         $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:8|max:12',
+        ]);
+    
+         $user = User::where('email', $request->email)->first();
+    
+       
+if (!$user) {
+    return response()->json(['error' => 'Invalid email address'], 401);
+} elseif (!Hash::check($request->password, $user->password)) {
+    return response()->json(['error' => 'Incorrect password'], 401);
+}
+
+         $token = JWTAuth::fromUser($user);
+    
+         return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'user' => $user->makeHidden(['password', 'created_at', 'updated_at']),  // Hide sensitive fields
+        ]);
+    }
+    
+    public function dashboard(Request $request)
+    {
+         try {
+            $user = JWTAuth::parseToken()->authenticate();
+        } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return response()->json(['error' => 'Token is expired'], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            return response()->json(['error' => 'Token is invalid'], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return response()->json(['error' => 'Token not provided'], 401);
+        }
+    
+         return response()->json([
+            'user' => $user,
+            'message' => 'Welcome to your dashboard'
+        ]);
+    }
+    public function logout(Request $request)
+    {
+        try {
+             $token = JWTAuth::getToken();
+    
+            if (!$token) {
+                return response()->json(['error' => 'Token not provided'], 401);
+            }
+    
+             JWTAuth::invalidate($token);
+    
+            return response()->json(['message' => 'Logged out successfully']);
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return response()->json(['error' => 'Failed to log out'], 500);
+        }
+    }    
+}
+
+
+
+
+
+
+
+
+
+
+Step 3: Test the API
+You can use tools like Postman or cURL to test the API endpoints. For example:
+
+http://127.0.0.1:8000/api/register?email=afnan@gmail.com&password=password&name=Afnan
+http://127.0.0.1:8000/api/login?email=afnan@gmail.com&password=password
+http://127.0.0.1:8000/api/dashboard
+Authorzation Value Bearer token
+
+
+http://127.0.0.1:8000/api/logout
+Authorzation Value Bearer token
+
+ 
+
+
+
+
+
+
+
+
+Now We go With React 
+
+npm create vite   
+
+cd React 
+npm install
+npm install react react-dom 
+npm install bootstrap    
+
+npm install @fortawesome/react-fontawesome @fortawesome/free-solid-svg-icons
+ npm install axios   
+ npm install --save-dev @vitejs/plugin-react   
+npm run dev
+
+npm install bootstrap
+
+
+
+
+after this then 
+
+make a new components in components/home.jsx , dashboard.jsx, register.jsx ,login.jsx ok 
+
+
+and make a router.jsx  file also ok 
+
+router.jsx
+
+import { Routes, Route } from 'react-router-dom';
+import Home from './components/Home';
+import Login from './components/Login';
+import Register from './components/Register';
+import Dashboard from './components/dashboard';
+
+const RouterComponent = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      
+    </Routes>
+  );
+};
+
+export default RouterComponent;
+
+
+
+left main.jsx as it is 
+
+
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
+);
+
+
+also update App.jsx
+
+
+
+// src/App.jsx
+import './App.css';
+import RouterComponent from './router'; // Import the RouterComponent
+
+function App() {
+  return (
+    <div>
+      <RouterComponent /> {/* This will handle routing */}
+    </div>
+  );
+}
+
+export default App;
+
+
+
+
+
+
+
+and make home.jsx like this 
+
+
+
+
+
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import "bootstrap/dist/css/bootstrap.min.css"; // Import Bootstrap for styling
+
+const Home = () => {
+  const navigate = useNavigate(); // Hook for navigation
+
+  const navigateTo = (path) => {
+    navigate(path);
+  };
+
+  return (
+    <div className="text-center mt-5">
+      <h1>Laravel 11 React Authentication</h1>
+
+      {/* Buttons */}
+      <div className="mt-4">
+        <button
+          className="btn btn-primary me-2"
+          onClick={() => navigateTo('/login')}
+        >
+          Login
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigateTo('/register')}
+        >
+          Register
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Home;
+
+
+
+ 
+
+
+
+const Register = () => {
+    return (
+      <div className="text-center mt-5">
+        <h1>Register Page</h1>
+        <p>This is the register page content.</p>
+      </div>
+    );
+  };
+  
+  export default Register;
+  
+
+register.jsx
+
+
+
+import React, { useState } from "react";
+import axios from "axios"; // Import axios for making API requests
+import "bootstrap/dist/css/bootstrap.min.css"; // Import Bootstrap CSS
+
+const Register = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(""); // State to store error message
+  const [success, setSuccess] = useState(""); // State to store success message
+  const [loading, setLoading] = useState(false); // State to manage loading state
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true); // Set loading to true while waiting for response
+    setError(""); // Clear any previous errors
+    setSuccess(""); // Clear any previous success messages
+
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/register", {
+        name,
+        email,
+        password,
+      });
+
+      console.log("Response:", response.data); // Log the response to check success
+
+      // Handle success response: display the success message and handle further actions
+      setSuccess("Registration successful! Please log in.");
+    } catch (err) {
+      setLoading(false); // Set loading to false when the request is done
+      if (err.response) {
+        console.error("Error response:", err.response); // Log the full response
+
+        // Check if there are validation errors
+        if (err.response.data.errors) {
+          setError(err.response.data.errors.email || "Registration failed. Please try again.");
+        } else {
+          setError(err.response.data.message || "Registration failed");
+        }
+      } else {
+        setError("Something went wrong.");
+      }
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="row justify-content-center">
+        <div className="col-sm-12 col-md-10 col-lg-12">
+          <div className="card shadow">
+            <div className="card-body">
+              <h2 className="text-center mb-4">Register</h2>
+              <form onSubmit={handleSubmit}>
+                <div className="mb-3">
+                  <label htmlFor="name" className="form-label">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="email" className="form-label">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="password" className="form-label">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                  {loading ? "Registering..." : "Register"}
+                </button>
+              </form>
+
+              {/* Display error or success messages */}
+              {error && <div className="alert alert-danger mt-3">{error}</div>}
+              {success && <div className="alert alert-success mt-3">{success}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
+
+
+
+
+
+login.jsx
+
+
+
+import React, { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css"; // Using Bootstrap for basic styling
+
+const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/login", {
+        email,
+        password,
+      });
+
+      console.log("Response:", response.data);
+      if (response.data.token && response.data.user) {
+        setSuccess("Login successful!");
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        navigate("/dashboard");
+      } else {
+        setError("Invalid login response. Please try again.");
+      }
+    } catch (err) {
+      setLoading(false);
+      if (err.response) {
+        setError(err.response.data.error || "Login failed. Please try again.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    }
+  };
+
+  return (
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+      <div className="card p-4 shadow" style={{ maxWidth: "400px", width: "100%" }}>
+        <h2 className="text-center mb-4">Login</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label htmlFor="email" className="form-label">Email:</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="form-control"
+              placeholder="Enter your email"
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label htmlFor="password" className="form-label">Password:</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="form-control"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
+          </button>
+          {error && <div className="alert alert-danger mt-3">{error}</div>}
+          {success && <div className="alert alert-success mt-3">{success}</div>}
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+.
+
+
+
+
+dashboard.jsx
+
+
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css"; // Importing Bootstrap for styling
+
+const Dashboard = () => {
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+
+    if (userData && token) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+
+        axios
+          .get("http://127.0.0.1:8000/api/dashboard", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((response) => {
+            console.log("Dashboard data:", response.data);
+          })
+          .catch((error) => {
+            setError("Failed to fetch dashboard data.");
+            console.error(error);
+          });
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+        localStorage.removeItem("user");
+        navigate("/login");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        "http://127.0.0.1:8000/api/logout",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Clear local storage
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+
+      // Redirect to login
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setError("Failed to log out.");
+    }
+  };
+
+  if (loading) return <p className="text-center text-secondary fs-5">Loading...</p>;
+
+  return (
+    <div className="container mt-5">
+      <div className="card shadow-lg p-4">
+        <h2 className="text-center text-primary mb-4">Welcome to Your Dashboard</h2>
+        {error && <p className="text-danger text-center">{error}</p>}
+        {user && (
+          <div className="alert alert-info text-center">
+            <p>
+              Hello, <strong>{user.name}</strong>!
+            </p>
+            <p>Your email: {user.email}</p>
+          </div>
+        )}
+        <button
+          onClick={handleLogout}
+          className="btn btn-danger d-block mx-auto"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+
+
+
+
+
+
+
+
+
+
+
